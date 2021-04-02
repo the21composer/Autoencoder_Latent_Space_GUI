@@ -84,7 +84,7 @@
 
 Для этого использовал PyQt5, в котором нарисовал простенький интерфейс.
 
-<img src="D:\Github\Autoencoder_Latent_Space_GUI\images\gui.png" style="zoom:80%;" />
+<img src=".\images\gui.png" style="zoom:80%;" />
 
 
 

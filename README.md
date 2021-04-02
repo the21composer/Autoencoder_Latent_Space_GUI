@@ -71,7 +71,7 @@
 
 <img src=".\images\plotly2.png" style="zoom:50%;" />
 
-<img src="D:\Github\Autoencoder_Latent_Space_GUI\images\plotly3.png" style="zoom:50%;" />
+<img src=".\images\plotly3.png" style="zoom:50%;" />
 
 На вид, будто цветок раскрылся =)
 

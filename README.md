@@ -17,7 +17,12 @@ https://youtu.be/bkHdb-MVesg
 ###  Запуск
 
 * Windows: файл setup.bat (должен быть установлен Python 3.8)
-* Linux: файл setup.sh
+* Linux: файл setup.sh (должен быть установлен python3)
+
+```sh
+sudo chmod +x setup.sh
+sudo ./setup.sh
+```
 
 ### Возможности
 

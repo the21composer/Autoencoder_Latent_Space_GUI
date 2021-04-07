@@ -15,7 +15,6 @@ import time
 
 class AutoEncoder:
     def __init__(self):
-        self.coded_size = 2
         self.ae, self.encoder, self.decoder = None, None, None
         # loading data from dataset
         (self.x_train, self.y_train), (self.x_test, self.y_test) = fashion_mnist.load_data()
@@ -36,17 +35,17 @@ class AutoEncoder:
     def make_model(self):
         # initializing encoder
         input_img = Input(shape=(784,))
-        encoded = Dense(512, activation='relu')(input_img)
-        encoded = Dense(256, activation='relu')(encoded)
+        encoded = Dense(256, activation='relu')(input_img)
         encoded = Dense(128, activation='relu')(encoded)
+        encoded = Dense(64, activation='relu')(encoded)
         encoded = Dense(3, activation='linear')(encoded)
         self.encoder = Model(input_img, encoded)
 
         # initializing decoder
         encoded_input = Input(shape=(3,))
-        decoded = Dense(128, activation='relu')(encoded_input)
+        decoded = Dense(64, activation='relu')(encoded_input)
+        decoded = Dense(128, activation='relu')(decoded)
         decoded = Dense(256, activation='relu')(decoded)
-        decoded = Dense(512, activation='relu')(decoded)
         decoded = Dense(784, activation='sigmoid')(decoded)
         self.decoder = Model(encoded_input, decoded)
 
@@ -54,11 +53,11 @@ class AutoEncoder:
         self.encoder_res = []
         full = self.decoder(self.encoder(input_img))
         self.ae = Model(input_img, full)
-        self.ae.compile(optimizer="adam", loss='mean_squared_error')
-        for i in range(10):
+        self.ae.compile(optimizer="adam", loss='binary_crossentropy', metrics=['mae'])
+        for i in range(20):
             self.ae.fit(self.x_train, self.x_train,
                         epochs=1,
-                        batch_size=256,
+                        batch_size=64,
                         validation_data=(self.x_test, self.x_test))
             self.encoder_res.append(self.encoder.predict(self.x_test))
         self.ae.save('model.h5')
@@ -113,27 +112,49 @@ class MainWindow(QtWidgets.QMainWindow):
         make_model_button.clicked.connect(lambda val: self.make_model(status))
         make_model_button.setMaximumSize(160, 80)
         make_model_button.setFont(QFont('Arial', 9))
+        latent_space_free_button = QtWidgets.QPushButton("Latent space Freeroam (Pyplot)")
+        latent_space_free_button.clicked.connect(lambda val: self.latent_space_freeroam())
+        latent_space_free_button.setMaximumSize(230, 80)
+        latent_space_free_button.setFont(QFont('Arial', 9))
         btn1_layout = QtWidgets.QHBoxLayout()
         btn1_layout.addWidget(latent_space_button)
         btn1_layout.addWidget(latent_space_pyplot_button)
         btn2_layout = QtWidgets.QHBoxLayout()
-        btn2_layout.addWidget(make_model_button)
+        btn3_layout = QtWidgets.QHBoxLayout()
+        btn3_layout.addWidget(make_model_button)
+        btn2_layout.addWidget(latent_space_free_button)
+
         gui_layout.addWidget(main_label)
         gui_layout.addWidget(second_label)
         gui_layout.addLayout(btn1_layout)
         gui_layout.addLayout(btn2_layout)
+        gui_layout.addLayout(btn3_layout)
         gui_layout.addWidget(status)
         central_widget.setLayout(gui_layout)
 
     def latent_space_pyplot(self):
         encoded_data = self.auto_encoder.get_encoded()
         fig = plt.figure()
-        self.ax = [fig.add_subplot(121, projection='3d')]
-        self.ax.append(fig.add_subplot(122))
+        self.ax = [fig.add_subplot(2, 2, (1, 3), projection='3d')]
+        plt.title("Press any key to load image")
+        self.ax.append(fig.add_subplot(224))
+        plt.title("Output image")
+        self.ax.append(fig.add_subplot(222))
+        plt.title("Input image")
         y_test = self.auto_encoder.y_test
         self.ax[0].scatter(encoded_data[:, 0], encoded_data[:, 1], encoded_data[:, 2], c=y_test, s=8, cmap='tab10')
         fig.canvas.mpl_connect('key_press_event', self.onclick)
+        plt.show()
+
+    def latent_space_freeroam(self):
+        encoded_data = self.auto_encoder.get_encoded()
+        fig = plt.figure()
+        self.ax = [fig.add_subplot(121, projection='3d')]
         plt.title("Press any key to load image")
+        self.ax.append(fig.add_subplot(122))
+        y_test = self.auto_encoder.y_test
+        self.ax[0].scatter(encoded_data[:, 0], encoded_data[:, 1], encoded_data[:, 2], c=y_test, s=8, cmap='tab10')
+        fig.canvas.mpl_connect('key_press_event', self.onclick_free)
         plt.show()
 
     def latent_space_epochs(self):
@@ -151,7 +172,6 @@ class MainWindow(QtWidgets.QMainWindow):
             output_data, x=0, y=1, z=2, color=3,
             labels={'color': 'species'}, animation_frame=4,
         )
-        fig["layout"].pop("updatemenus")  # optional, drop animation buttons
         fig.update_traces(marker_size=3)
         fig.show()
 
@@ -166,7 +186,25 @@ class MainWindow(QtWidgets.QMainWindow):
         s = self.ax[0].format_coord(event.xdata, event.ydata)
         out = [float(x.split('=')[1].strip().replace(u'\N{MINUS SIGN}', '-')) for x in s.split(',')]
         latent_vector = np.array([out])
+        encoded_test = self.auto_encoder.get_encoded()
+        x_test = self.auto_encoder.x_test
+        nearest = 0
+        minim = 100
+        for i in range(encoded_test.shape[0]):
+            delta = np.linalg.norm(latent_vector - encoded_test[i])
+            if delta < minim:
+                nearest = i
+                minim = delta
+        decoded_img = self.auto_encoder.decoder.predict(np.expand_dims(encoded_test[nearest], axis=0))
+        decoded_img = decoded_img.reshape(28, 28)
+        self.ax[1].imshow(decoded_img, cmap='gray')
+        self.ax[2].imshow(x_test[nearest].reshape(28, 28), cmap='gray')
+        plt.draw()
 
+    def onclick_free(self, event):
+        s = self.ax[0].format_coord(event.xdata, event.ydata)
+        out = [float(x.split('=')[1].strip().replace(u'\N{MINUS SIGN}', '-')) for x in s.split(',')]
+        latent_vector = np.array([out])
         decoded_img = self.auto_encoder.decoder.predict(latent_vector)
         decoded_img = decoded_img.reshape(28, 28)
         self.ax[1].imshow(decoded_img, cmap='gray')
